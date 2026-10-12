@@ -294,6 +294,21 @@ class RMatrix:
         return self.is_core_asn(asn) or self.is_branch_asn(asn)
 
     @staticmethod
+    def __init_worker_cpu__(state, link1, link2, shape, next_hop=None) -> None:
+        """
+        Worker process initializer: set up shared matrices.
+
+        Kept at class level (not nested) so it can be pickled with
+        "spawn" or "forkserver" start methods.
+        """
+        RMatrix.__shared_matrix__["state"] = state
+        RMatrix.__shared_matrix__["link1"] = link1
+        RMatrix.__shared_matrix__["link2"] = link2
+        RMatrix.__shared_matrix__["shape"] = shape
+        if next_hop is not None:
+            RMatrix.__shared_matrix__["next_hop"] = next_hop
+
+    @staticmethod
     def __iterate_state_cpu__(worker_id: int, left: int, right: int, max_iter: int) -> None:
         """
         Worker process: Propagate routing states without next-hop info.
@@ -509,27 +524,16 @@ class RMatrix:
         print(f"runner with {n_jobs} processes.")
 
         if save_next_hop:
-            def initializer(state, link1, link2, next_hop, shape):
-                RMatrix.__shared_matrix__["state"] = state
-                RMatrix.__shared_matrix__["link1"] = link1
-                RMatrix.__shared_matrix__["link2"] = link2
-                RMatrix.__shared_matrix__["next_hop"] = next_hop
-                RMatrix.__shared_matrix__["shape"] = shape
-            initargs = (state, link1, link2, next_hop, shape)
+            initargs = (state, link1, link2, shape, next_hop)
             process_call = RMatrix.__iterate_state_and_next_hop_cpu__
         else:
-            def initializer(state, link1, link2, shape):
-                RMatrix.__shared_matrix__["state"] = state
-                RMatrix.__shared_matrix__["link1"] = link1
-                RMatrix.__shared_matrix__["link2"] = link2
-                RMatrix.__shared_matrix__["shape"] = shape
             initargs = (state, link1, link2, shape)
             process_call = RMatrix.__iterate_state_cpu__
 
         params = zip(range(n_jobs), split[:-1], split[1:], [max_iter]*n_jobs)
 
         def runner():
-            with Pool(processes=n_jobs, initializer=initializer, initargs=initargs) as pool:
+            with Pool(processes=n_jobs, initializer=RMatrix.__init_worker_cpu__, initargs=initargs) as pool:
                 pool.starmap(process_call, params)
                 RMatrix.__shared_matrix__.clear()
             return state_np, next_hop_np
