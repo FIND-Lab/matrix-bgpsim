@@ -6,12 +6,15 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 import sys
+from importlib.metadata import version as package_version
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 project = 'matrix-bgpsim'
 copyright = '2025, Yihao Chen'
 author = 'Yihao Chen'
+release = package_version('matrix-bgpsim')
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -41,4 +44,4 @@ html_theme = "furo"
 # If using sphinx_rtd_theme, you also need to import it
 # import sphinx_rtd_theme
 
-html_static_path = ['_static']
+html_static_path = []

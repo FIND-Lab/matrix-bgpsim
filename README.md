@@ -1,7 +1,7 @@
 <h1 align="center">matrix-bgpsim: A fast and efficient matrix-based BGP simulator with GPU acceleration</h1>
 
 <p align="center">
-  <a href="https://github.com/yhchen-tsinghua/matrix-bgpsim/releases/latest"><img src="https://img.shields.io/github/release/yhchen-tsinghua/matrix-bgpsim.svg?maxAge=600" alt="Latest release" /></a>
+  <a href="https://github.com/FIND-Lab/matrix-bgpsim/releases/latest"><img src="https://img.shields.io/github/release/FIND-Lab/matrix-bgpsim.svg?maxAge=600" alt="Latest release" /></a>
   <a href="https://pypi.org/project/matrix-bgpsim/"><img src="https://img.shields.io/pypi/v/matrix-bgpsim.svg?maxAge=600" alt="PyPI version"></a>
   <a href="https://matrix-bgpsim.readthedocs.io/en/latest/"><img src="https://readthedocs.org/projects/matrix-bgpsim/badge/?version=latest" alt="Docs Status" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.8%2B-brightgreen.svg?maxAge=2592000" alt="Python version"></a>
@@ -85,7 +85,7 @@ You can clone this repository and install `matrix-bgpsim` from source:
 * To install CPU-only backend (without GPU acceleration):
 
     ```bash
-    git clone https://github.com/yhchen-tsinghua/matrix-bgpsim.git
+    git clone https://github.com/FIND-Lab/matrix-bgpsim.git
     cd matrix-bgpsim
     pip install .
     ```
@@ -93,7 +93,7 @@ You can clone this repository and install `matrix-bgpsim` from source:
 * To install optional PyTorch backend (for GPU acceleration with PyTorch):
 
     ```bash
-    git clone https://github.com/yhchen-tsinghua/matrix-bgpsim.git
+    git clone https://github.com/FIND-Lab/matrix-bgpsim.git
     cd matrix-bgpsim
     pip install ".[torch]"
     ```
@@ -101,7 +101,7 @@ You can clone this repository and install `matrix-bgpsim` from source:
 * To install optional CuPy backend (for GPU acceleration with CuPy):
 
     ```bash
-    git clone https://github.com/yhchen-tsinghua/matrix-bgpsim.git
+    git clone https://github.com/FIND-Lab/matrix-bgpsim.git
     cd matrix-bgpsim
     pip install ".[cupy]"
     ```
@@ -109,7 +109,7 @@ You can clone this repository and install `matrix-bgpsim` from source:
 * To install multiple optional backends at once:
 
     ```bash
-    git clone https://github.com/yhchen-tsinghua/matrix-bgpsim.git
+    git clone https://github.com/FIND-Lab/matrix-bgpsim.git
     cd matrix-bgpsim
     pip install ".[torch,cupy]"
     ```
@@ -140,16 +140,22 @@ rmatrix = RMatrix(
 
 To run simulation with a certain backend:
 
--   Using CPU backend:
+-   Using CPU backend (protect the script entry point so worker processes can safely import it):
 
     ```python
-    rmatrix.run(
-        n_jobs=4,           # number of parallel CPU processes
-        max_iter=32,        # maximum route propagation iterations
-        save_next_hop=True, # store next-hop information
-        backend="cpu",      # use CPU multiprocessing
-    )
+    from matrix_bgpsim import RMatrix
+
+    if __name__ == "__main__":
+        rmatrix = RMatrix("20250101.as-rel2.txt", excluded={"1234", "5678"})
+        rmatrix.run(
+            n_jobs=4,           # number of parallel CPU processes
+            max_iter=32,        # maximum route propagation iterations
+            save_next_hop=True, # store next-hop information
+            backend="cpu",      # use CPU multiprocessing
+        )
     ```
+
+    Keep subsequent route queries and save operations inside this entry-point guard as well.
 
 -   Using PyTorch backend:
 
