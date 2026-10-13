@@ -2,7 +2,10 @@
 name = "matrix-bgpsim"
 version = "1.0.2"
 description = "Matrix-based BGP simulation tool for AS-level routing analysis, supporting GPU acceleration."
-authors = [{ name = "Yihao Chen", email = "yh-chen21@mails.tsinghua.edu.cn" }]
+authors = [
+    { name = "Yihao Chen", email = "yh-chen21@mails.tsinghua.edu.cn" },
+    { name = "Azizbek Muxtarov" },
+]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.8"

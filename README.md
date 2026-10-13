@@ -32,6 +32,7 @@
     -   [Topology Compression](#topology-compression)
     -   [One-Byte Encoding](#one-byte-encoding)
     -   [Matrix Operations](#matrix-operations)
+-   [Contributors](#contributors)
 -   [Contact](#contact)
 
 ## Features
@@ -297,6 +298,10 @@ This encoding allows `matrix-bgpsim` to turn complex BGP iterations into highly 
     - Highly vectorized using NumPy, PyTorch or CuPy backends.
     - Efficient next-hop tracking allows fast path reconstruction on demand.
     - Matrix operations reduce BGP propagation to bitwise and arithmetic operations, maximizing speed and memory efficiency.
+
+## Contributors
+
+- [Azizbek Muxtarov](https://github.com/limonuser)
 
 ## Contact
 
