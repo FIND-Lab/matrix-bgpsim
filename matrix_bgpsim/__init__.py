@@ -163,7 +163,8 @@ class RMatrix:
         elif isinstance(excluded, (Set, Dict)):
             excluded_check = lambda item: item in excluded
         elif isinstance(excluded, Iterable) and not isinstance(excluded, str):
-            excluded_check = lambda item: item in set(excluded)
+            excluded_set = set(excluded) # build once, also works for one-shot iterators
+            excluded_check = lambda item: item in excluded_set
         else:
             assert isinstance(excluded, Callable), \
                 f"excluded should be Callable or container for membership check: received {type(excluded)}"
@@ -735,7 +736,7 @@ class RMatrix:
         **Important caveats:**
             - Simulation (`run()`) must have been executed before calling this method,
               otherwise an AssertionError is raised.
-            - If the route from `asn1` to `asn1` does not exist, the result is `(None, 0)`.
+            - If the route from `asn1` to `asn2` does not exist, the result is `(None, 0)`.
             - If `asn1 == asn2`, the type defaults to `P2C` and length is 0.
 
         Args:
@@ -752,9 +753,10 @@ class RMatrix:
         assert self.__state__ is not None, f"run simulation to get state matrix first"
 
         def decode_state_from_matrix(asn1, asn2):
-            s = self.__state__[self.asn2idx(asn1), self.asn2idx(asn2)]
+            s = int(self.__state__[self.asn2idx(asn1), self.asn2idx(asn2)])
             s_type = [None, RMatrix.C2P, RMatrix.P2P, RMatrix.P2C][s >> 6]
-            s_len = 0b00_111111 - (s & 0b00_111111)
+            # the length bits of an unreachable route are not meaningful
+            s_len = 0b00_111111 - (s & 0b00_111111) if s_type is not None else 0
             return s_type, s_len
 
         if self.is_branch_asn(asn1): # asn1 is branch AS
