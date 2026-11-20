@@ -576,6 +576,9 @@ class RMatrix:
         next_hop = torch.full(shape, -1, dtype=torch.int32,
                         device=device, requires_grad=False).t() if save_next_hop else None
 
+        # whether any route has changed in the current iteration
+        changed = torch.zeros((), dtype=torch.bool, device=device)
+
         # initialize state and link matrices
         with torch.no_grad():
             state.fill_diagonal_(0b11_111111)
@@ -598,16 +601,23 @@ class RMatrix:
             torch.bitwise_and(tmp0, tmp1, out=tmp0)
             torch.bitwise_or(tmp1, state, out=tmp1)
 
+        # write the new routes of column j into state and record if any changed
+        def update_column(j, new_col):
+            new_col[j] = 0b11_111111 # self-pointing route
+            torch.logical_or(changed, torch.any(state[:, j] != new_col), out=changed)
+            state[:, j] = new_col
+
         if save_next_hop:
             def iterate():
                 pre_update()
+                changed.fill_(False)
                 for j in range(state.size(1)):
                     torch.bitwise_and(link1, tmp0[:, j], out=tmp2)
                     torch.bitwise_and(link2, tmp1[:, j], out=tmp3)
                     torch.bitwise_or(tmp2, tmp3, out=tmp2)
 
                     max_vals, max_idx = torch.max(tmp2, dim=1)
-                    state[:, j] = max_vals.sub_(1)
+                    update_column(j, max_vals.sub_(1))
                     next_hop[:, j] = max_idx
                 state.fill_diagonal_(0b11_111111)
                 # TODO (future): add batch processing for this iteration,
@@ -615,25 +625,26 @@ class RMatrix:
         else:
             def iterate():
                 pre_update()
+                changed.fill_(False)
                 for j in range(state.size(1)):
                     torch.bitwise_and(link1, tmp0[:, j], out=tmp2)
                     torch.bitwise_and(link2, tmp1[:, j], out=tmp3)
                     torch.bitwise_or(tmp2, tmp3, out=tmp2)
-                    state[:, j] = torch.max(tmp2, dim=1)[0].sub_(1)
+                    update_column(j, torch.max(tmp2, dim=1)[0].sub_(1))
                 state.fill_diagonal_(0b11_111111)
 
         def runner():
             with torch.no_grad():
-                prev_hash = torch.sum(state, dtype=torch.int64)
                 for it in range(max_iter):
                     iterate()
-                    new_hash = torch.sum(state, dtype=torch.int64)
                     print(f"Iteration {it+1} completed")
-                    if torch.equal(new_hash, prev_hash): # early stop
+                    # early stop only when no route has changed, since route
+                    # values can go both up and down within one iteration
+                    if not changed.item():
                         break
-                    prev_hash = new_hash
                 if next_hop is not None:
                     next_hop[state <= 0b00_111111] = -1
+                    next_hop.fill_diagonal_(-1) # no next hop to itself, same as CPU backend
                 # TODO (future): write a custom CUDA kernel to reduce the mask tensor here
                 # TODO (future): fine-grained early stop mechanism
             return state.cpu().numpy(), next_hop.cpu().numpy() if next_hop is not None else None
@@ -671,6 +682,9 @@ class RMatrix:
 
             next_hop = cp.full(shape, -1, dtype=cp.int32).T if save_next_hop else None
 
+            # whether any route has changed in the current iteration
+            changed = cp.zeros((), dtype=cp.bool_)
+
             # initialize state and link matrices
             cp.fill_diagonal(state, 0b11_111111)
             for i, ngbrs in enumerate(idx2ngbrs):
@@ -692,38 +706,46 @@ class RMatrix:
                 cp.bitwise_and(tmp0, tmp1, out=tmp0)
                 cp.bitwise_or(tmp1, state, out=tmp1)
 
+            # write the new routes of column j into state and record if any changed
+            def update_column(j, new_col):
+                new_col[j] = 0b11_111111 # self-pointing route
+                cp.logical_or(changed, cp.any(state[:, j] != new_col), out=changed)
+                state[:, j] = new_col
+
             if save_next_hop:
                 def iterate():
                     pre_update()
+                    changed.fill(False)
                     for j in range(state.shape[1]):
                         cp.bitwise_and(link1, tmp0[:, j], out=tmp2)
                         cp.bitwise_and(link2, tmp1[:, j], out=tmp3)
                         cp.bitwise_or(tmp2, tmp3, out=tmp2)
 
-                        state[:, j] = cp.max(tmp2, axis=1) - 1
+                        update_column(j, cp.max(tmp2, axis=1) - 1)
                         next_hop[:, j] = cp.argmax(tmp2, axis=1)
                     cp.fill_diagonal(state, 0b11_111111)
             else:
                 def iterate():
                     pre_update()
+                    changed.fill(False)
                     for j in range(state.shape[1]):
                         cp.bitwise_and(link1, tmp0[:, j], out=tmp2)
                         cp.bitwise_and(link2, tmp1[:, j], out=tmp3)
                         cp.bitwise_or(tmp2, tmp3, out=tmp2)
-                        state[:, j] = cp.max(tmp2, axis=1) - 1
+                        update_column(j, cp.max(tmp2, axis=1) - 1)
                     cp.fill_diagonal(state, 0b11_111111)
 
             def runner():
-                prev_hash = cp.sum(state, dtype=cp.int64)
                 for it in range(max_iter):
                     iterate()
-                    new_hash = cp.sum(state, dtype=cp.int64)
                     print(f"Iteration {it+1} completed")
-                    if cp.array_equal(new_hash, prev_hash):  # early stop
+                    # early stop only when no route has changed, since route
+                    # values can go both up and down within one iteration
+                    if not changed.item():
                         break
-                    prev_hash = new_hash
                 if next_hop is not None:
                     next_hop[state <= 0b00_111111] = -1
+                    cp.fill_diagonal(next_hop, -1) # no next hop to itself, same as CPU backend
                 return state.get(), next_hop.get() if next_hop is not None else None
 
             return runner
